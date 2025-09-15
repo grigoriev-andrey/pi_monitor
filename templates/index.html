@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>🍓 Raspberry Pi Monitor</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        h1 {
+            text-align: center;
+            color: white;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+            margin-bottom: 30px;
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 20px;
+        }
+        .stat-card {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+        .stat-title {
+            font-size: 18px;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .stat-value {
+            font-size: 32px;
+            font-weight: bold;
+            color: #4a90e2;
+            margin-bottom: 5px;
+        }
+        .stat-unit {
+            font-size: 14px;
+            color: #666;
+        }
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #e0e0e0;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-top: 10px;
+        }
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #4a90e2, #50e3c2);
+            border-radius: 4px;
+            transition: width 0.5s ease;
+        }
+        .temp-high { color: #e74c3c !important; }
+        .temp-medium { color: #f39c12 !important; }
+        .temp-normal { color: #27ae60 !important; }
+        .fan-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-left: 10px;
+        }
+        .fan-off { background: #95a5a6; }
+        .fan-on { background: #27ae60; animation: pulse 1s infinite; }
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🍓 Raspberry Pi System Monitor</h1>
+        
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-title">🌡️ Temperature</div>
+                <div class="stat-value" id="temperature">--</div>
+                <div class="stat-unit">°C <span class="fan-indicator" id="fan-indicator"></span></div>
+            </div>
+            
+            <div class="stat-card">
+                <div class="stat-title">🔥 CPU Usage</div>
+                <div class="stat-value" id="cpu">--</div>
+                <div class="stat-unit">%</div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="cpu-bar"></div>
+                </div>
+            </div>
+            
+            <div class="stat-card">
+                <div class="stat-title">💾 Memory</div>
+                <div class="stat-value" id="memory">--</div>
+                <div class="stat-unit">% (<span id="memory-used">--</span>GB / <span id="memory-total">--</span>GB)</div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="memory-bar"></div>
+                </div>
+            </div>
+            
+            <div class="stat-card">
+                <div class="stat-title">💿 Disk</div>
+                <div class="stat-value" id="disk">--</div>
+                <div class="stat-unit">% (<span id="disk-used">--</span>GB / <span id="disk-total">--</span>GB)</div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="disk-bar"></div>
+                </div>
+            </div>
+            
+            <div class="stat-card">
+                <div class="stat-title">⏰ Uptime</div>
+                <div class="stat-value" id="uptime">--</div>
+                <div class="stat-unit">hours</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function updateStats() {
+            fetch('/api/stats')
+                .then(response => response.json())
+                .then(data => {
+                    // Temperature
+                    const tempElement = document.getElementById('temperature');
+                    tempElement.textContent = data.temperature;
+                    
+                    if (data.temperature > 60) {
+                        tempElement.className = 'stat-value temp-high';
+                    } else if (data.temperature > 45) {
+                        tempElement.className = 'stat-value temp-medium';
+                    } else {
+                        tempElement.className = 'stat-value temp-normal';
+                    }
+                    
+                    // Fan indicator
+                    const fanIndicator = document.getElementById('fan-indicator');
+                    if (data.fan_state > 0) {
+                        fanIndicator.className = 'fan-indicator fan-on';
+                    } else {
+                        fanIndicator.className = 'fan-indicator fan-off';
+                    }
+                    
+                    // CPU
+                    document.getElementById('cpu').textContent = data.cpu_percent;
+                    document.getElementById('cpu-bar').style.width = data.cpu_percent + '%';
+                    
+                    // Memory
+                    document.getElementById('memory').textContent = data.memory_percent;
+                    document.getElementById('memory-used').textContent = data.memory_used_gb;
+                    document.getElementById('memory-total').textContent = data.memory_total_gb;
+                    document.getElementById('memory-bar').style.width = data.memory_percent + '%';
+                    
+                    // Disk
+                    document.getElementById('disk').textContent = data.disk_percent;
+                    document.getElementById('disk-used').textContent = data.disk_used_gb;
+                    document.getElementById('disk-total').textContent = data.disk_total_gb;
+                    document.getElementById('disk-bar').style.width = data.disk_percent + '%';
+                    
+                    // Uptime
+                    document.getElementById('uptime').textContent = data.uptime_hours;
+                });
+        }
+        
+        // Update every 2 seconds
+        updateStats();
+        setInterval(updateStats, 2000);
+    </script>
+</body>
+</html>
